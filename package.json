@@ -1,0 +1,35 @@
+{
+  "name": "com.unity.noise-texture-generator",
+  "version": "1.0.0",
+  "displayName": "Noise & Texture Generator",
+  "description": "3D and 2D Texture generation using compute shaders within the Unity engine. Handles creation and serialization of different 3D/2D textures created via custom compute shaders through a custom ComputeTexture object.",
+  "unity": "2019.4",
+  "unityRelease": "0f1",
+  "keywords": [
+    "noise",
+    "texture",
+    "compute shader",
+    "3d texture",
+    "2d texture",
+    "procedural",
+    "raymarching",
+    "volumetric",
+    "clouds"
+  ],
+  "author": {
+    "name": "mtwoodard",
+    "url": "https://github.com/mtwoodard"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mtwoodard/NoiseGenerator.git"
+  },
+  "license": "MIT",
+  "samples": [
+    {
+      "displayName": "Noise Generator Examples",
+      "description": "Example prefabs and assets demonstrating various noise generation techniques.",
+      "path": "Samples~/Examples"
+    }
+  ]
+}

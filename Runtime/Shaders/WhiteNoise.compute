@@ -1,0 +1,148 @@
+//---------------------------------------------------------------------------------------------------------
+// White Noise Generator
+// RGB各チャンネルで独立したホワイトノイズを生成するCompute Shader
+// 2D・3D両対応
+//---------------------------------------------------------------------------------------------------------
+
+#pragma kernel WhiteNoise2DGen
+#pragma kernel WhiteNoise3DGen
+
+// テクスチャ出力
+RWTexture2D<float4> WhiteNoise2D;
+RWTexture3D<float4> WhiteNoise3D;
+
+// パラメータ
+float WhiteNoise2DRes;
+float WhiteNoise3DRes;
+float RandomSeed;
+float NoiseIntensity;
+
+//---------------------------------------------------------------------------------------------------------
+// Hash Functions for Random Number Generation
+//---------------------------------------------------------------------------------------------------------
+
+// 高品質なハッシュ関数（Wang Hash基準）
+uint hash1(uint x) {
+    x ^= x >> 16;
+    x *= 0x7feb352dU;
+    x ^= x >> 15;
+    x *= 0x846ca68bU;
+    x ^= x >> 16;
+    return x;
+}
+
+// 2D座標用ハッシュ
+uint hash2(uint2 v) {
+    return hash1(v.x ^ hash1(v.y));
+}
+
+// 3D座標用ハッシュ
+uint hash3(uint3 v) {
+    return hash1(v.x ^ hash1(v.y ^ hash1(v.z)));
+}
+
+// uint を [0,1] の float に変換
+float uint_to_float(uint x) {
+    return float(x) / 4294967296.0; // 2^32
+}
+
+// シード付きハッシュ関数
+uint seeded_hash1(uint x, uint seed) {
+    return hash1(x ^ seed);
+}
+
+uint seeded_hash2(uint2 v, uint seed) {
+    return hash1(hash2(v) ^ seed);
+}
+
+uint seeded_hash3(uint3 v, uint seed) {
+    return hash1(hash3(v) ^ seed);
+}
+
+//---------------------------------------------------------------------------------------------------------
+// White Noise Generation Functions
+//---------------------------------------------------------------------------------------------------------
+
+// 2D用：RGB各チャンネル独立したホワイトノイズ生成
+float4 generateWhiteNoise2D(uint2 coord, uint baseSeed) {
+    // 各チャンネル用に異なるシードを生成
+    uint seedR = baseSeed;
+    uint seedG = baseSeed + 12345U;
+    uint seedB = baseSeed + 67890U;
+    uint seedA = baseSeed + 24680U;
+    
+    // RGB各チャンネルで独立したランダム値を生成
+    float r = uint_to_float(seeded_hash2(coord, seedR));
+    float g = uint_to_float(seeded_hash2(coord, seedG));
+    float b = uint_to_float(seeded_hash2(coord, seedB));
+    float a = uint_to_float(seeded_hash2(coord, seedA));
+    
+    return float4(r, g, b, a);
+}
+
+// 3D用：RGB各チャンネル独立したホワイトノイズ生成
+float4 generateWhiteNoise3D(uint3 coord, uint baseSeed) {
+    // 各チャンネル用に異なるシードを生成
+    uint seedR = baseSeed;
+    uint seedG = baseSeed + 12345U;
+    uint seedB = baseSeed + 67890U;
+    uint seedA = baseSeed + 24680U;
+    
+    // RGB各チャンネルで独立したランダム値を生成
+    float r = uint_to_float(seeded_hash3(coord, seedR));
+    float g = uint_to_float(seeded_hash3(coord, seedG));
+    float b = uint_to_float(seeded_hash3(coord, seedB));
+    float a = uint_to_float(seeded_hash3(coord, seedA));
+    
+    return float4(r, g, b, a);
+}
+
+//---------------------------------------------------------------------------------------------------------
+// 2D White Noise Generator Kernel
+//---------------------------------------------------------------------------------------------------------
+[numthreads(16, 16, 1)]
+void WhiteNoise2DGen(uint3 id : SV_DispatchThreadID)
+{
+    // 範囲チェック
+    if (id.x >= (uint)WhiteNoise2DRes || id.y >= (uint)WhiteNoise2DRes) return;
+    
+    // シード値を計算（float から uint に変換）
+    uint seed = (uint)(RandomSeed * 4294967296.0);
+    
+    // ホワイトノイズ生成
+    float4 noise = generateWhiteNoise2D(id.xy, seed);
+    
+    // 強度調整
+    noise *= NoiseIntensity;
+    
+    // [0, 1] の範囲に clamp
+    noise = saturate(noise);
+    
+    // 2Dテクスチャに出力
+    WhiteNoise2D[id.xy] = noise;
+}
+
+//---------------------------------------------------------------------------------------------------------
+// 3D White Noise Generator Kernel
+//---------------------------------------------------------------------------------------------------------
+[numthreads(8, 8, 8)]
+void WhiteNoise3DGen(uint3 id : SV_DispatchThreadID)
+{
+    // 範囲チェック
+    if (id.x >= (uint)WhiteNoise3DRes || id.y >= (uint)WhiteNoise3DRes || id.z >= (uint)WhiteNoise3DRes) return;
+    
+    // シード値を計算（float から uint に変換）
+    uint seed = (uint)(RandomSeed * 4294967296.0);
+    
+    // ホワイトノイズ生成
+    float4 noise = generateWhiteNoise3D(id.xyz, seed);
+    
+    // 強度調整
+    noise *= NoiseIntensity;
+    
+    // [0, 1] の範囲に clamp
+    noise = saturate(noise);
+    
+    // 3Dテクスチャに出力
+    WhiteNoise3D[id.xyz] = noise;
+}
