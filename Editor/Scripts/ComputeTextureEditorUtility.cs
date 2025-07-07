@@ -115,6 +115,83 @@ public static class ComputeTextureEditorUtility
     }
 
     //-------------------------------------------------------------------------------------------------------------------
+    // Editor-only Texture Generation Functions
+    //-------------------------------------------------------------------------------------------------------------------
+    public static void CreateRenderTexture(ComputeTexture computeTexture)
+    {
+        if (computeTexture.rwTexture.rt != null)
+        {
+            computeTexture.rwTexture.rt.Release();
+        }
+
+        RenderTexture rt = new RenderTexture(computeTexture.squareResolution, computeTexture.squareResolution, 0, RenderTextureFormat.ARGB32);
+        rt.dimension = UnityEngine.Rendering.TextureDimension.Tex2D;
+        rt.enableRandomWrite = true;
+        rt.wrapMode = TextureWrapMode.Clamp;
+        rt.Create();
+
+        var rwTexture = computeTexture.rwTexture;
+        rwTexture.rt = rt;
+        computeTexture.rwTexture = rwTexture;
+        
+        Debug.Log($"ComputeTexture: Created render texture {computeTexture.squareResolution}x{computeTexture.squareResolution}");
+    }
+
+    public static void SetParameters(ComputeTexture computeTexture)
+    {
+        if (computeTexture.computeShader == null)
+        {
+            Debug.LogWarning("ComputeTexture: No compute shader assigned!");
+            return;
+        }
+
+        if (computeTexture.parameters == null) return;
+
+        int kernelIndex = computeTexture.computeShader.FindKernel(computeTexture.kernelName);
+        
+        foreach (var param in computeTexture.parameters)
+        {
+            computeTexture.computeShader.SetFloat(param.name, param.value);
+        }
+        
+        Debug.Log($"ComputeTexture: Set {computeTexture.parameters.Length} parameters");
+    }
+
+    public static void SetTexture(ComputeTexture computeTexture)
+    {
+        if (computeTexture.computeShader == null || computeTexture.rwTexture.rt == null)
+        {
+            Debug.LogWarning("ComputeTexture: Missing compute shader or render texture!");
+            return;
+        }
+
+        int kernelIndex = computeTexture.computeShader.FindKernel(computeTexture.kernelName);
+        computeTexture.computeShader.SetTexture(kernelIndex, computeTexture.rwTexture.name, computeTexture.rwTexture.rt);
+        
+        Debug.Log($"ComputeTexture: Set texture '{computeTexture.rwTexture.name}' for kernel '{computeTexture.kernelName}'");
+    }
+
+    public static void GenerateTexture(ComputeTexture computeTexture)
+    {
+        if (computeTexture.computeShader == null || computeTexture.rwTexture.rt == null)
+        {
+            Debug.LogWarning("ComputeTexture: Missing compute shader or render texture!");
+            return;
+        }
+
+        int kernelIndex = computeTexture.computeShader.FindKernel(computeTexture.kernelName);
+        
+        // Calculate dispatch groups
+        int groupsX = Mathf.CeilToInt(computeTexture.squareResolution / (float)computeTexture.computeThreads.x);
+        int groupsY = Mathf.CeilToInt(computeTexture.squareResolution / (float)computeTexture.computeThreads.y);
+        int groupsZ = Mathf.CeilToInt(1 / (float)computeTexture.computeThreads.z);
+        
+        computeTexture.computeShader.Dispatch(kernelIndex, groupsX, groupsY, groupsZ);
+        
+        Debug.Log($"ComputeTexture: Generated texture using kernel '{computeTexture.kernelName}' with dispatch({groupsX}, {groupsY}, {groupsZ})");
+    }
+
+    //-------------------------------------------------------------------------------------------------------------------
     // Utility Functions
     //-------------------------------------------------------------------------------------------------------------------
     private static Texture2D ConvertFromRenderTexture(RenderTexture rt, int resolution)
