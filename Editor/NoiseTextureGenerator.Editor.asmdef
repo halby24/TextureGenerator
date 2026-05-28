@@ -2,7 +2,8 @@
     "name": "NoiseTextureGenerator.Editor",
     "rootNamespace": "NoiseTextureGenerator.Editor",
     "references": [
-        "NoiseTextureGenerator.Runtime"
+        "NoiseTextureGenerator.Runtime",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [
         "Editor"

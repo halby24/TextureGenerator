@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using Unity.Mathematics;
+using static Unity.Mathematics.math;
 
 public static class ComputeTextureEditorUtility
 {
@@ -17,7 +19,21 @@ public static class ComputeTextureEditorUtility
         }
 
         Texture2D output = ConvertFromRenderTexture(computeTexture.rwTexture.rt, computeTexture.squareResolution);
-        AssetDatabase.CreateAsset(output, "Assets/Noise/" + computeTexture.assetName + ".asset");
+        
+        // Handle different assetName formats
+        string assetPath;
+        if (computeTexture.assetName.StartsWith("Assets/"))
+        {
+            // Full path already provided (from file dialog)
+            assetPath = computeTexture.assetName + ".asset";
+        }
+        else
+        {
+            // Legacy format: just filename, use default path
+            assetPath = "Assets/Noise/" + computeTexture.assetName + ".asset";
+        }
+        
+        AssetDatabase.CreateAsset(output, assetPath);
     }
 
     public static void SaveAsset(ComputeTexture3D computeTexture3D)
@@ -57,7 +73,20 @@ public static class ComputeTextureEditorUtility
         output.SetPixels(outputPixels);
         output.Apply();
 
-        AssetDatabase.CreateAsset(output, "Assets/Noise/" + computeTexture3D.assetName + ".asset");
+        // Handle different assetName formats
+        string assetPath;
+        if (computeTexture3D.assetName.StartsWith("Assets/"))
+        {
+            // Full path already provided (from file dialog)
+            assetPath = computeTexture3D.assetName + ".asset";
+        }
+        else
+        {
+            // Legacy format: just filename, use default path
+            assetPath = "Assets/Noise/" + computeTexture3D.assetName + ".asset";
+        }
+        
+        AssetDatabase.CreateAsset(output, assetPath);
     }
 
     //-------------------------------------------------------------------------------------------------------------------
@@ -71,8 +100,7 @@ public static class ComputeTextureEditorUtility
             return;
         }
 
-        var detectedParams = new List<ComputeTexture.ComputeParameterFloat>();
-        var detectedTextures = new List<ComputeTexture.ComputeRWTexture>();
+        var detectedParams = new List<ComputeTexture.ComputeParameter>();
         var detectedKernels = new List<ComputeTexture.KernelInfo>();
 
         string shaderPath = AssetDatabase.GetAssetPath(computeTexture.computeShader);
@@ -83,16 +111,11 @@ public static class ComputeTextureEditorUtility
         }
 
         string shaderContent = System.IO.File.ReadAllText(shaderPath);
-        ParseShaderContent(shaderContent, detectedParams, detectedTextures, detectedKernels);
+        ParseShaderContent(shaderContent, detectedParams, detectedKernels);
 
         // Update parameters array
         computeTexture.parameters = detectedParams.ToArray();
 
-        // Update texture if we found any
-        if (detectedTextures.Count > 0)
-        {
-            computeTexture.rwTexture = detectedTextures[0]; // Use first detected texture
-        }
 
         // Update kernels array
         computeTexture.availableKernels = detectedKernels.ToArray();
@@ -222,12 +245,11 @@ public static class ComputeTextureEditorUtility
         return render;
     }
 
-    private static void ParseShaderContent(string content, List<ComputeTexture.ComputeParameterFloat> parameters,
-        List<ComputeTexture.ComputeRWTexture> textures, List<ComputeTexture.KernelInfo> kernels)
+    private static void ParseShaderContent(string content, List<ComputeTexture.ComputeParameter> parameters, List<ComputeTexture.KernelInfo> kernels)
     {
         string[] lines = content.Split('\n');
         var kernelNames = new List<string>();
-        var kernelThreads = new Dictionary<string, ComputeTexture.IntVector3>();
+        var kernelThreads = new Dictionary<string, int3>();
 
         for (int i = 0; i < lines.Length; i++)
         {
@@ -281,30 +303,8 @@ public static class ComputeTextureEditorUtility
                     // Skip common built-in variables
                     if (!IsBuiltInVariable(paramName))
                     {
-                        parameters.Add(new ComputeTexture.ComputeParameterFloat { name = paramName, value = 1.0f });
+                        parameters.Add(new ComputeTexture.ComputeParameter { name = paramName, value = 1.0f });
                     }
-                }
-            }
-
-            // Detect RWTexture2D
-            else if (Regex.IsMatch(trimmedLine, @"^RWTexture2D<\w+>\s+\w+\s*;"))
-            {
-                Match match = Regex.Match(trimmedLine, @"RWTexture2D<\w+>\s+(\w+)\s*;");
-                if (match.Success)
-                {
-                    string textureName = match.Groups[1].Value;
-                    textures.Add(new ComputeTexture.ComputeRWTexture { name = textureName });
-                }
-            }
-
-            // Detect RWTexture3D
-            else if (Regex.IsMatch(trimmedLine, @"^RWTexture3D<\w+>\s+\w+\s*;"))
-            {
-                Match match = Regex.Match(trimmedLine, @"RWTexture3D<\w+>\s+(\w+)\s*;");
-                if (match.Success)
-                {
-                    string textureName = match.Groups[1].Value;
-                    textures.Add(new ComputeTexture.ComputeRWTexture { name = textureName });
                 }
             }
         }
@@ -312,7 +312,7 @@ public static class ComputeTextureEditorUtility
         // Combine kernel names with their thread counts
         foreach (string kernelName in kernelNames)
         {
-            ComputeTexture.IntVector3 threads = kernelThreads.ContainsKey(kernelName)
+            ComputeTexture.int3 threads = kernelThreads.ContainsKey(kernelName)
                 ? kernelThreads[kernelName]
                 : new ComputeTexture.IntVector3 { x = 1, y = 1, z = 1 }; // Default values
 

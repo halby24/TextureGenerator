@@ -41,7 +41,7 @@ public class ComputeTextureTestTool : EditorWindow
 
     private void TestParameterDetection()
     {
-        var detectedParams = new List<ComputeTexture.ComputeParameterFloat>();
+        var detectedParams = new List<ComputeTexture.ComputeParameter>();
         var detectedTextures = new List<ComputeTexture.ComputeRWTexture>();
         var detectedKernels = new List<string>();
         

@@ -25,6 +25,9 @@
     "url": "https://github.com/mtwoodard/NoiseGenerator.git"
   },
   "license": "MIT",
+  "dependencies": {
+    "com.unity.mathematics": "1.2.6"
+  },
   "samples": [
     {
       "displayName": "Noise Generator Examples",
